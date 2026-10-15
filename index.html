@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>通知單產生器</title>
+<style>
+:root{
+  --gap: 8mm;
+  --cols: 2;
+  --rows: 4;
+  --page-w: 210mm;
+  --page-h: 297mm;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;
+  background:#eef1f4;
+  color:#222;
+  overflow:hidden;
+}
+.app-shell{
+  height:100vh;
+  display:grid;
+  grid-template-columns:minmax(340px, 420px) 1fr;
+}
+.toolbar{
+  background:#fff;
+  border-right:1px solid #d9dee5;
+  padding:18px;
+  overflow:auto;
+  min-width:0;
+}
+.toolbar h1{margin:0 0 14px;font-size:22px}
+.controls{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  align-items:end;
+}
+.preview-panel{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+.preview-panel-head{
+  height:48px;
+  display:flex;
+  align-items:center;
+  padding:0 18px;
+  font-size:14px;
+  font-weight:800;
+  background:#fff;
+  border-bottom:1px solid #d9dee5;
+}
+
+label{font-size:13px;font-weight:700;display:block;margin-bottom:5px}
+input,select,textarea,button{
+  width:100%; font:inherit;
+}
+input,select,textarea{
+  border:1px solid #bbb;
+  border-radius:8px;
+  padding:8px 10px;
+  background:#fff;
+}
+textarea{resize:vertical}
+.span2{grid-column:1/-1}
+.span4{grid-column:1/-1}
+.actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.actions .secondary{
+  grid-column:1/-1;
+}
+.all-options{
+  border:1px solid #cfd4da;
+  border-radius:10px;
+  background:#fff;
+}
+.all-options > summary{
+  cursor:pointer;
+  padding:10px 12px;
+  font-weight:800;
+  user-select:none;
+}
+.all-options-body{
+  padding:0 10px 10px 10px;
+}
+.option-stack{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.option-stack details{
+  border:1px solid #ddd;
+  border-radius:10px;
+  background:#fafafa;
+  overflow:hidden;
+}
+.option-stack summary{
+  cursor:pointer;
+  padding:10px 12px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  user-select:none;
+}
+.option-stack summary input{
+  width:auto;
+}
+.detail-body{
+  padding:0 12px 12px 12px;
+}
+.detail-body input,
+.detail-body textarea{
+  width:100%;
+}
+.notice-title-wrap{
+  text-align:center;
+  margin-bottom:3mm;
+}
+.notice-title{
+  display:inline-block;
+  text-align:center;
+  font-weight:800;
+  font-size:16px;
+}
+.notice-title.boxed{
+  border:1.5px solid #222;
+  padding:2.5mm 4mm;
+}
+.inline-option{
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  font-weight:600;
+}
+.inline-option input{
+  width:auto;
+}
+.notice-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  font-size:12px;
+  margin-bottom:3mm;
+}
+.field-label{
+  display:block;
+  margin:8px 0 5px;
+  font-size:12px;
+  font-weight:700;
+}
+.signature-line{
+  text-align:right;
+  font-size:14px;
+  font-weight:700;
+  margin-top:4mm;
+}
+.signature-line .date-before{
+  margin-right:8px;
+  font-weight:400;
+}
+.reply-sep{
+  border-top:1.5px dashed #555;
+  margin:4mm 0 3mm;
+}
+.reply-sep.with-label{
+  position:relative;
+  margin:5mm 0 4mm;
+}
+.reply-sep.with-label .reply-label{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  background:#fff;
+  padding:0 3mm;
+  white-space:nowrap;
+  font-size:12px;
+  line-height:1.2;
+}
+.reply-text{
+  white-space:pre-wrap;
+  font-size:12px;
+  line-height:1.5;
+  min-height:10mm;
+}
+.parent-sign{
+  text-align:right;
+  margin-top:4mm;
+  font-size:12px;
+}
+button{
+  border:0; border-radius:9px;
+  padding:10px 14px;
+  background:#111; color:#fff;
+  cursor:pointer; font-weight:700;
+}
+button.secondary{background:#e9edf2;color:#222}
+.hint{
+  margin-top:8px;
+  font-size:12px;
+  color:#666;
+  line-height:1.5;
+}
+.status{
+  margin-top:8px;
+  font-size:13px;
+  color:#444;
+}
+.preview-wrap{
+  flex:1;
+  padding:24px;
+  overflow:auto;
+  min-height:0;
+}
+.page{
+  width:var(--page-w);
+  height:var(--page-h);
+  background:#fff;
+  margin:0 auto 18px;
+  padding:10mm;
+  display:grid;
+  grid-template-columns:repeat(var(--cols),1fr);
+  grid-template-rows:repeat(var(--rows),1fr);
+  gap:var(--gap);
+  box-shadow:0 2px 14px rgba(0,0,0,.12);
+}
+.notice{
+  border:1.2px solid #333;
+  padding:5mm;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  overflow:hidden;
+}
+.student{
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:4mm;
+}
+.content{
+  white-space:pre-wrap;
+  font-size:14px;
+  line-height:1.65;
+  flex:1;
+  overflow:hidden;
+}
+.signature{
+  text-align:right;
+  font-size:14px;
+  font-weight:700;
+  margin-top:4mm;
+}
+.empty{
+  color:#aaa;
+  font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+
+@media (max-width:900px){
+  body{overflow:auto}
+  .app-shell{
+    height:auto;
+    min-height:100vh;
+    display:block;
+  }
+  .toolbar{
+    border-right:0;
+    border-bottom:1px solid #d9dee5;
+    max-height:none;
+    overflow:visible;
+  }
+  .preview-panel{
+    height:auto;
+    min-height:70vh;
+  }
+  .preview-wrap{
+    overflow:auto;
+  }
+}
+
+@media print{
+  html,body{height:auto}
+  body{background:#fff;overflow:visible}
+  .app-shell{display:block;height:auto}
+  .toolbar,.preview-panel-head{display:none!important}
+  .preview-panel{display:block;height:auto}
+  .preview-wrap{display:block;padding:0;overflow:visible}
+  .page{
+    margin:0;
+    box-shadow:none;
+    page-break-after:always;
+    break-after:page;
+  }
+  .page:last-child{
+    page-break-after:auto;
+    break-after:auto;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+<aside class="toolbar">
+  <h1>通知單產生器</h1>
+  <div class="controls">
+    <div class="span2">
+      <label for="students">學生資料（每行一位，可直接貼 Excel / 試算表）</label>
+      <textarea id="students" rows="6" placeholder="例如：
+301 王小明
+301	李小華
+四年二班 陳美玲
+402,林冠宇"></textarea>
+    </div>
+    <div class="span2">
+      <label for="content">通知內容</label>
+      <textarea id="content" rows="6" placeholder="請輸入通知內容，可直接換行。"></textarea>
+    </div>
+
+    <div>
+      <label for="signature">處室署名</label>
+      <input id="signature" value="">
+    </div>
+    <div>
+      <label for="orientation">A4 方向</label>
+      <select id="orientation">
+        <option value="portrait">直式</option>
+        <option value="landscape">橫式</option>
+      </select>
+    </div>
+    <div>
+      <label for="rows">每頁幾行</label>
+      <input id="rows" type="number" min="1" max="10" value="4">
+    </div>
+    <div>
+      <label for="cols">每頁幾列</label>
+      <input id="cols" type="number" min="1" max="6" value="2">
+    </div>
+
+    <div>
+      <label for="titlePrefix">學生欄位顯示</label>
+      <select id="titlePrefix">
+        <option value="student">班級＋姓名</option>
+        <option value="class">班級：</option>
+        <option value="full">學生：班級＋姓名</option>
+      </select>
+    </div>
+    <div>
+      <label for="gap">格子間距（mm）</label>
+      <input id="gap" type="number" min="0" max="20" step="1" value="8">
+    </div>
+    <div>
+      <label for="contentSize">內文字級（pt）</label>
+      <input id="contentSize" type="number" min="8" max="24" value="11">
+    </div>
+    <div>
+      <label for="studentSize">學生欄字級（pt）</label>
+      <input id="studentSize" type="number" min="9" max="28" value="13">
+    </div>
+
+
+    <div class="span4">
+      <details class="all-options">
+        <summary>其他欄位（選填）</summary>
+        <div class="all-options-body">
+          <div class="option-stack">
+            <details>
+              <summary><input type="checkbox" id="showTitle"> 通知單標題</summary>
+              <div class="detail-body">
+                <input id="noticeTitle" placeholder="例如：課程通知、資料繳交通知" disabled>
+                <label class="inline-option">
+                  <input type="checkbox" id="titleBox" disabled>
+                  標題加方框
+                </label>
+              </div>
+            </details>
+
+            <details>
+              <summary><input type="checkbox" id="showDate"> 日期</summary>
+              <div class="detail-body">
+                <input id="noticeDate" type="text" placeholder="可留空，或自行輸入日期" disabled>
+                <label class="field-label">日期位置</label>
+                <select id="datePosition" disabled>
+                  <option value="leftTop">左上角</option>
+                  <option value="rightTop">右上角</option>
+                  <option value="beforeSignature">處室名稱前面</option>
+                </select>
+              </div>
+            </details>
+
+            <details>
+              <summary><input type="checkbox" id="showParentSign"> 家長簽名欄</summary>
+              <div class="detail-body">
+                <input id="parentSignText" value="家長簽名：" disabled>
+              </div>
+            </details>
+
+            <details>
+              <summary><input type="checkbox" id="showReplyLine"> 回條虛線</summary>
+              <div class="detail-body">
+                <textarea id="replyText" rows="3" placeholder="可留空，只顯示虛線；也可以輸入回條內容" disabled></textarea>
+                <label class="field-label">文字位置</label>
+                <select id="replyTextPosition" disabled>
+                  <option value="middle">虛線中間</option>
+                  <option value="below">虛線下方</option>
+                </select>
+              </div>
+            </details>
+
+            <details>
+              <summary><input type="checkbox" id="showNumber"> 自動編號</summary>
+              <div class="detail-body">
+                <input id="numberPrefix" placeholder="編號前綴，例如：No. " value="No. " disabled>
+              </div>
+            </details>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="span4 actions">
+      <button id="refreshBtn">更新預覽</button>
+      <button id="printBtn">列印 / 儲存 PDF</button>
+      <button id="clearBtn" class="secondary">清空學生名單</button>
+    </div>
+  </div>
+  <div class="hint">
+    自動辨識方式：每行會先抓最後一段為姓名，前面的內容當班級。支援「301 王小明」、「301<TAB>王小明」、「四年二班 陳美玲」、「402,林冠宇」等格式。
+  </div>
+  <div id="status" class="status"></div>
+</aside>
+
+<main class="preview-panel">
+  <div class="preview-panel-head">A4 預覽</div>
+  <div id="preview" class="preview-wrap"></div>
+</main>
+</div>
+
+<script>
+const el = id => document.getElementById(id);
+
+function parseStudents(raw){
+  return raw
+    .split(/\r?\n/)
+    .map(s=>s.trim())
+    .filter(Boolean)
+    .map(line=>{
+      let parts = line
+        .replace(/[，、；;]+/g, ',')
+        .split(/\t|,|\s{1,}/)
+        .map(s=>s.trim())
+        .filter(Boolean);
+
+      if(parts.length===1){
+        // 嘗試抓常見班級格式 + 姓名
+        const m = line.match(/^(.+?(?:班|\d{3,4}))\s*(.+)$/);
+        if(m) return {cls:m[1].trim(), name:m[2].trim(), raw:line};
+        return {cls:'', name:line, raw:line};
+      }
+      const name = parts[parts.length-1];
+      const cls = parts.slice(0,-1).join(' ');
+      return {cls, name, raw:line};
+    });
+}
+
+function studentLabel(s, mode){
+  const joined = [s.cls, s.name].filter(Boolean).join(' ');
+  if(mode==='full') return '學生：' + joined;
+  if(mode==='class') return '班級：' + (s.cls||'') + '　姓名：' + (s.name||'');
+  return joined;
+}
+
+function applyPageSize(){
+  const o = el('orientation').value;
+  if(o==='portrait'){
+    document.documentElement.style.setProperty('--page-w','210mm');
+    document.documentElement.style.setProperty('--page-h','297mm');
+  }else{
+    document.documentElement.style.setProperty('--page-w','297mm');
+    document.documentElement.style.setProperty('--page-h','210mm');
+  }
+  let style = document.getElementById('print-page-style');
+  if(!style){
+    style=document.createElement('style');
+    style.id='print-page-style';
+    document.head.appendChild(style);
+  }
+  style.textContent = `@page { size: A4 ${o}; margin: 0; }`;
+}
+
+function render(){
+  applyPageSize();
+
+  const students = parseStudents(el('students').value);
+  const rows = Math.max(1, parseInt(el('rows').value||1));
+  const cols = Math.max(1, parseInt(el('cols').value||1));
+  const perPage = rows*cols;
+  const gap = Math.max(0, parseFloat(el('gap').value||0));
+  const content = el('content').value;
+  const signature = el('signature').value;
+  const showTitle = el('showTitle').checked;
+  const noticeTitle = el('noticeTitle').value.trim();
+  const titleBox = el('titleBox').checked;
+  const showDate = el('showDate').checked;
+  const noticeDate = el('noticeDate').value;
+  const datePosition = el('datePosition').value;
+  const showParentSign = el('showParentSign').checked;
+  const parentSignText = el('parentSignText').value || '家長簽名：';
+  const showReplyLine = el('showReplyLine').checked;
+  const replyText = el('replyText').value;
+  const replyTextPosition = el('replyTextPosition').value;
+  const showNumber = el('showNumber').checked;
+  const numberPrefix = el('numberPrefix').value;
+  const contentSize = Math.max(8, parseFloat(el('contentSize').value||11));
+  const studentSize = Math.max(9, parseFloat(el('studentSize').value||13));
+  const mode = el('titlePrefix').value;
+
+  document.documentElement.style.setProperty('--rows',rows);
+  document.documentElement.style.setProperty('--cols',cols);
+  document.documentElement.style.setProperty('--gap',gap+'mm');
+
+  const preview=el('preview');
+  preview.innerHTML='';
+
+  const source = students.length ? students : [{cls:'',name:'預覽學生'}];
+  const pages = Math.ceil(source.length/perPage);
+
+  for(let p=0;p<pages;p++){
+    const page=document.createElement('section');
+    page.className='page';
+
+    for(let i=0;i<perPage;i++){
+      const idx=p*perPage+i;
+      if(idx>=source.length){
+        const blank=document.createElement('div');
+        blank.className='empty';
+        blank.textContent='';
+        page.appendChild(blank);
+        continue;
+      }
+      const s=source[idx];
+      const card=document.createElement('div');
+      card.className='notice';
+
+      if(showTitle){
+        const tw=document.createElement('div');
+        tw.className='notice-title-wrap';
+        const t=document.createElement('div');
+        t.className='notice-title' + (titleBox ? ' boxed' : '');
+        t.textContent=noticeTitle || '通知單';
+        tw.appendChild(t);
+        card.appendChild(tw);
+      }
+
+      if((showDate && datePosition!=='beforeSignature') || showNumber){
+        const meta=document.createElement('div');
+        meta.className='notice-meta';
+        const left=document.createElement('div');
+        const right=document.createElement('div');
+
+        if(showDate && datePosition==='leftTop'){
+          left.textContent=noticeDate;
+        }
+        if(showDate && datePosition==='rightTop'){
+          right.textContent=noticeDate;
+        }
+        if(showNumber){
+          if(right.textContent){
+            right.textContent += '　' + (numberPrefix || '') + (idx+1);
+          }else{
+            right.textContent=(numberPrefix || '') + (idx+1);
+          }
+        }
+        meta.append(left,right);
+        card.appendChild(meta);
+      }
+
+      const stu=document.createElement('div');
+      stu.className='student';
+      stu.style.fontSize=studentSize+'pt';
+      stu.textContent=studentLabel(s,mode);
+      card.appendChild(stu);
+
+      const cont=document.createElement('div');
+      cont.className='content';
+      cont.style.fontSize=contentSize+'pt';
+      cont.textContent=content || '請輸入通知內容。';
+      card.appendChild(cont);
+
+      if(signature || (showDate && datePosition==='beforeSignature')){
+        const sig=document.createElement('div');
+        sig.className='signature-line';
+        sig.style.fontSize=contentSize+'pt';
+
+        if(showDate && datePosition==='beforeSignature'){
+          const ds=document.createElement('span');
+          ds.className='date-before';
+          ds.textContent=noticeDate;
+          sig.appendChild(ds);
+        }
+
+        if(signature){
+          const ss=document.createElement('span');
+          ss.textContent=signature;
+          sig.appendChild(ss);
+        }
+        card.appendChild(sig);
+      }
+
+      if(showReplyLine){
+        const sep=document.createElement('div');
+
+        if(replyText.trim() && replyTextPosition==='middle'){
+          sep.className='reply-sep with-label';
+          const label=document.createElement('span');
+          label.className='reply-label';
+          label.textContent=replyText;
+          sep.appendChild(label);
+          card.appendChild(sep);
+        }else{
+          sep.className='reply-sep';
+          card.appendChild(sep);
+
+          if(replyText.trim()){
+            const rt=document.createElement('div');
+            rt.className='reply-text';
+            rt.textContent=replyText;
+            card.appendChild(rt);
+          }
+        }
+      }
+
+      if(showParentSign){
+        const ps=document.createElement('div');
+        ps.className='parent-sign';
+        ps.textContent=parentSignText + '________________';
+        card.appendChild(ps);
+      }
+
+      page.appendChild(card);
+    }
+    preview.appendChild(page);
+  }
+
+  el('status').textContent =
+    `共辨識 ${students.length} 位學生｜每頁 ${rows} × ${cols} = ${perPage} 張｜共 ${students.length ? Math.ceil(students.length/perPage) : 1} 頁`;
+}
+
+['students','content','signature','orientation','rows','cols','gap','contentSize','studentSize','titlePrefix',
+'noticeTitle','noticeDate','parentSignText','replyText','numberPrefix','titleBox','datePosition','replyTextPosition']
+.forEach(id=>el(id).addEventListener('input',render));
+
+[
+  ['showTitle','noticeTitle'],
+  ['showDate','noticeDate'],
+  ['showParentSign','parentSignText'],
+  ['showReplyLine','replyText'],
+  ['showNumber','numberPrefix']
+].forEach(([checkId,inputId])=>{
+  const check = el(checkId);
+  const input = el(inputId);
+  const details = check.closest('details');
+
+  check.addEventListener('click', e => e.stopPropagation());
+
+  check.addEventListener('change',()=>{
+    input.disabled=!check.checked;
+    if(checkId==='showTitle'){
+      el('titleBox').disabled=!check.checked;
+      if(!check.checked) el('titleBox').checked=false;
+    }
+    if(checkId==='showDate'){
+      el('datePosition').disabled=!check.checked;
+    }
+    if(checkId==='showReplyLine'){
+      el('replyTextPosition').disabled=!check.checked;
+    }
+    if(check.checked) details.open = true;
+    render();
+  });
+});
+
+el('refreshBtn').addEventListener('click',render);
+el('printBtn').addEventListener('click',()=>{render(); window.print();});
+el('clearBtn').addEventListener('click',()=>{el('students').value=''; render();});
+
+render();
+</script>
+</body>
+</html>
