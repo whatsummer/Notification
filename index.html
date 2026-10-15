@@ -33,7 +33,20 @@ body{
   overflow:auto;
   min-width:0;
 }
-.toolbar h1{margin:0 0 14px;font-size:22px}
+.toolbar h1{margin:0 0 4px;font-size:22px}
+.creator-mark{
+  margin:0 0 16px;
+  font-size:12px;
+  letter-spacing:.04em;
+  color:#6b7280;
+}
+.creator-mark strong{
+  color:#333;
+  font-weight:800;
+}
+.creator-sep{
+  margin:0 3px;
+}
 .controls{
   display:grid;
   grid-template-columns:1fr;
@@ -315,6 +328,9 @@ button.secondary{background:#e9edf2;color:#222}
 <div class="app-shell">
 <aside class="toolbar">
   <h1>通知單產生器</h1>
+  <div class="creator-mark">
+    <span>Created by SL · FGFH</span>
+  </div>
   <div class="controls">
     <div class="span2">
       <label for="students">學生資料（每行一位，可直接貼 Excel / 試算表）</label>
