@@ -208,6 +208,38 @@ textarea{resize:vertical}
   line-height:1.5;
   min-height:10mm;
 }
+.reply-content{
+  white-space:pre-wrap;
+  font-size:12px;
+  line-height:1.6;
+  margin-top:2mm;
+}
+.reply-check-row{ margin:1.2mm 0; }
+.reply-extra-text{ white-space:pre-wrap; margin-top:2mm; }
+.mode-box{ margin-top:8px; }
+.reply-options-list{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  margin-bottom:8px;
+}
+.reply-option-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:6px;
+  align-items:center;
+}
+.mini-btn,.remove-option-btn{
+  width:auto;
+  display:inline-block;
+  padding:7px 10px;
+  border-radius:7px;
+  font-size:12px;
+  background:#e9edf2;
+  color:#222;
+}
+.remove-option-btn{ padding:7px 9px; background:#f1f3f5; color:#444; }
+
 .parent-sign{
   text-align:right;
   margin-top:4mm;
@@ -426,12 +458,31 @@ button.secondary{background:#e9edf2;color:#222}
             <details>
               <summary><input type="checkbox" id="showReplyLine"> 回條虛線</summary>
               <div class="detail-body">
-                <textarea id="replyText" rows="3" placeholder="可留空，只顯示虛線；也可以輸入回條內容" disabled></textarea>
-                <label class="field-label">文字位置</label>
-                <select id="replyTextPosition" disabled>
-                  <option value="middle">虛線中間</option>
-                  <option value="below">虛線下方</option>
+                <textarea id="replyText" rows="2" placeholder="可留空；有輸入時文字固定顯示在虛線正中央" disabled></textarea>
+              </div>
+            </details>
+
+            <details>
+              <summary><input type="checkbox" id="showReplyContent"> 回條文字</summary>
+              <div class="detail-body">
+                <label class="field-label">模式</label>
+                <select id="replyContentMode" disabled>
+                  <option value="text">純文字模式</option>
+                  <option value="checklist">勾選模式</option>
                 </select>
+
+                <div id="replyTextModeBox" class="mode-box">
+                  <label class="field-label">回條內容</label>
+                  <textarea id="replyContentText" rows="4" placeholder="直接輸入回條內容" disabled></textarea>
+                </div>
+
+                <div id="replyChecklistModeBox" class="mode-box" style="display:none;">
+                  <label class="field-label">勾選選項</label>
+                  <div id="replyOptionsList" class="reply-options-list"></div>
+                  <button type="button" id="addReplyOptionBtn" class="mini-btn" disabled>＋ 新增選項</button>
+                  <label class="field-label">補充文字</label>
+                  <textarea id="replyChecklistExtraText" rows="3" placeholder="可留空，例如：其他：__________" disabled></textarea>
+                </div>
               </div>
             </details>
 
@@ -536,7 +587,12 @@ function render(){
   const parentSignText = el('parentSignText').value || '家長簽名：';
   const showReplyLine = el('showReplyLine').checked;
   const replyText = el('replyText').value;
-  const replyTextPosition = el('replyTextPosition').value;
+  const showReplyContent = el('showReplyContent').checked;
+  const replyContentMode = el('replyContentMode').value;
+  const replyContentText = el('replyContentText').value;
+  const replyChecklistExtraText = el('replyChecklistExtraText').value;
+  const replyOptions = [...document.querySelectorAll('.reply-option-input')]
+    .map(input => input.value.trim()).filter(Boolean);
   const showNumber = el('showNumber').checked;
   const numberPrefix = el('numberPrefix').value;
   const contentSize = Math.max(8, parseFloat(el('contentSize').value||11));
@@ -637,25 +693,40 @@ function render(){
 
       if(showReplyLine){
         const sep=document.createElement('div');
-
-        if(replyText.trim() && replyTextPosition==='middle'){
+        if(replyText.trim()){
           sep.className='reply-sep with-label';
           const label=document.createElement('span');
           label.className='reply-label';
           label.textContent=replyText;
           sep.appendChild(label);
-          card.appendChild(sep);
         }else{
           sep.className='reply-sep';
-          card.appendChild(sep);
+        }
+        card.appendChild(sep);
+      }
 
-          if(replyText.trim()){
-            const rt=document.createElement('div');
-            rt.className='reply-text';
-            rt.textContent=replyText;
-            card.appendChild(rt);
+      if(showReplyContent){
+        const rc=document.createElement('div');
+        rc.className='reply-content';
+
+        if(replyContentMode==='text'){
+          if(replyContentText.trim()) rc.textContent=replyContentText;
+        }else{
+          replyOptions.forEach(opt=>{
+            const row=document.createElement('div');
+            row.className='reply-check-row';
+            row.textContent='□ ' + opt;
+            rc.appendChild(row);
+          });
+          if(replyChecklistExtraText.trim()){
+            const extra=document.createElement('div');
+            extra.className='reply-extra-text';
+            extra.textContent=replyChecklistExtraText;
+            rc.appendChild(extra);
           }
         }
+
+        if(rc.textContent.trim() || rc.children.length) card.appendChild(rc);
       }
 
       if(showParentSign){
@@ -675,7 +746,7 @@ function render(){
 }
 
 ['students','content','signature','orientation','rows','cols','gap','contentSize','studentSize','titlePrefix',
-'noticeTitle','noticeDate','parentSignText','replyText','numberPrefix','titleBox','datePosition','replyTextPosition']
+'noticeTitle','noticeDate','parentSignText','replyText','numberPrefix','titleBox','datePosition','replyContentMode','replyContentText','replyChecklistExtraText']
 .forEach(id=>el(id).addEventListener('input',render));
 
 [
@@ -683,6 +754,7 @@ function render(){
   ['showDate','noticeDate'],
   ['showParentSign','parentSignText'],
   ['showReplyLine','replyText'],
+  ['showReplyContent','replyContentMode'],
   ['showNumber','numberPrefix']
 ].forEach(([checkId,inputId])=>{
   const check = el(checkId);
@@ -700,8 +772,9 @@ function render(){
     if(checkId==='showDate'){
       el('datePosition').disabled=!check.checked;
     }
-    if(checkId==='showReplyLine'){
-      el('replyTextPosition').disabled=!check.checked;
+    if(checkId==='showReplyContent'){
+      el('replyContentMode').disabled=!check.checked;
+      updateReplyModeUI();
     }
     if(check.checked) details.open = true;
     render();
@@ -711,6 +784,52 @@ function render(){
 el('refreshBtn').addEventListener('click',render);
 el('printBtn').addEventListener('click',()=>{render(); window.print();});
 el('clearBtn').addEventListener('click',()=>{el('students').value=''; render();});
+
+function updateReplyModeUI(){
+  const enabled = el('showReplyContent').checked;
+  const mode = el('replyContentMode').value;
+  el('replyTextModeBox').style.display = mode==='text' ? 'block' : 'none';
+  el('replyChecklistModeBox').style.display = mode==='checklist' ? 'block' : 'none';
+  el('replyContentText').disabled = !enabled || mode!=='text';
+  el('replyChecklistExtraText').disabled = !enabled || mode!=='checklist';
+  el('addReplyOptionBtn').disabled = !enabled || mode!=='checklist';
+  document.querySelectorAll('.reply-option-input,.remove-option-btn').forEach(x=>{
+    x.disabled = !enabled || mode!=='checklist';
+  });
+}
+
+function addReplyOption(value=''){
+  const row=document.createElement('div');
+  row.className='reply-option-row';
+
+  const input=document.createElement('input');
+  input.type='text';
+  input.className='reply-option-input';
+  input.placeholder='輸入選項文字';
+  input.value=value;
+  input.addEventListener('input',render);
+
+  const del=document.createElement('button');
+  del.type='button';
+  del.className='remove-option-btn';
+  del.textContent='刪除';
+  del.addEventListener('click',()=>{ row.remove(); render(); });
+
+  row.append(input,del);
+  el('replyOptionsList').appendChild(row);
+  updateReplyModeUI();
+  render();
+}
+
+el('replyContentMode').addEventListener('change',()=>{
+  updateReplyModeUI();
+  render();
+});
+el('addReplyOptionBtn').addEventListener('click',()=>addReplyOption(''));
+
+addReplyOption('同意');
+addReplyOption('不同意');
+updateReplyModeUI();
 
 render();
 </script>
